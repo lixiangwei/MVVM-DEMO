@@ -1,0 +1,94 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>MVVM demo</title>
+    </head>
+
+    <body>
+
+        <div data-component="InputComponent">
+            <input type="text" name="user" demo-model="user" value="" />
+            <div>{{user}}</div>
+        </div>
+
+        <script>
+        //需要检测的标识
+        var MODEL_IDENTIFY = 'demo-model';
+        //匹配{{}}模板字符
+        var regTemplate = /\{\{(\w+)\}\}/g;
+
+        //应用启动程序
+        function bootApp() {
+            var components = Array.prototype.slice.call(document.querySelectorAll('[data-component]'), 0);
+            //遍历每个组件初始化他们
+            components.forEach(function (element) {
+                var component = element.getAttribute('data-component');
+                bootComponent(element, window[component + 'Controller']);
+            });
+        }
+        
+        //组件启动程序
+        function bootComponent(element, controller) {
+            var $scope = {}
+            traverse(element, $scope);
+            //执行组件对应controller代码
+            controller($scope);
+        }
+         
+        //遍历DOM，分析出数据模型和视图之间的绑定关系
+        function traverse(root, $scope) {
+            for (var element = root.firstChild; element; element = element.nextSibling) {
+                parseElement(element, $scope);
+                if (element) {
+                    traverse(element, $scope);
+                }
+            }
+        }
+         
+        var _map = {};
+        function parseElement(element, $scope) {
+            if (element.nodeType === 1) {
+                //元素的话，添加事件监听他的变化，写进对应scope
+                if (element.hasAttribute(MODEL_IDENTIFY)) {
+                    var model = element.getAttribute(MODEL_IDENTIFY);
+                    _map[model] = [];
+                    element.addEventListener('input', function () {
+                        $scope[model] = this.value;        
+                    });
+                }
+            } else if (element.nodeType === 3) {
+                //文字,解析{{}}内容出来
+                var text = element.textContent,
+                    match = regTemplate.exec(text);
+                while (match) {
+                    var model = match[1]
+                    _map[model].push(element);
+                    lastIndex = regTemplate.lastIndex;
+                    match = regTemplate.exec(text);
+                }
+            }
+        }
+
+        function defineProperty($scope, property, value) {
+            Object.defineProperty($scope, property, {
+                set:function(item) {
+                    _map[property].forEach(function (element) {
+                        element.textContent = item;
+                    });
+                }
+            });
+            $scope[property] = value;
+        }
+
+        //controller
+        function InputComponentController($scope) {
+            defineProperty($scope, 'user', '123');
+        }
+
+        //启动程序
+        bootApp();
+
+        </script>
+    </body>
+</html>
